@@ -1,14 +1,92 @@
-# Self-Healing Gemini Agent — with Phoenix Observability & MCP Self-Introspection
+# Self-Healing Gemini Agent
 
-A Gemini agent (built on **Google ADK**) that solves tasks by writing and running
-Python — and **heals itself by reading its own trace history**. Every step is traced
-to **Arize Phoenix** via OpenInference. At runtime the agent queries its *own* past
-failures (through Phoenix) and avoids repeating them. The improvement is measurable.
+> Built for the Arize hackathon — a Gemini agent that **learns from its own mistakes by reading its own logs**. [Live demo transcript](TRANSCRIPT.md) · [Submission notes](SUBMISSION.md)
 
-> Built for the Arize track. Hits all five judging criteria: technical implementation,
-> meaningful tracing, MCP integration, a working self-improvement loop, and impact.
+## What is this?
+
+Your app is a **Gemini agent that learns from its own mistakes**. When it runs,
+every step (every line of code it writes, every error it hits) is recorded in a
+logging system called **Phoenix**. On a *fresh* run — **before doing anything
+else** — the agent reads its own log from earlier runs. So if it tried `numpy`
+last time and failed, it skips `numpy` this time.
+
+The demo proves it twice: **Run 1** (cold) tries numpy → fails → falls back to
+`statistics` and recovers. **Run 2** (informed) reads Run 1's log, skips numpy
+entirely, succeeds on the first try.
+
+That's the whole product. Everything else — MCP, ADK, evals, annotations — is
+the plumbing that makes it real.
+
+## 30-second walkthrough
+
+**Run 1 — cold start.** The agent has no history. It tries `numpy`. The sandbox
+doesn't have numpy installed, so it crashes. The agent reads the error, falls
+back to Python's `statistics` module, and succeeds.
+
+```
+🧠 Let me check what's failed for me before …
+→ No past failures — this is a cold start.
+💻 Trying this code:
+   import numpy as np ...
+❌ That failed — I'll fix it and try again.
+💻 Trying this code:
+   import statistics ...
+✅ It worked!
+🤖 Since numpy was not installed in this environment, I fell back to the
+   Python standard library.
+```
+
+**Run 2 — informed.** A brand new agent process with **zero local memory**.
+Its only way to know about Run 1 is to read its own Phoenix log via MCP.
+
+```
+🧠 Let me check what's failed for me before …
+→ Found 1 past failure(s). Reading them.
+💻 Trying this code:
+   import statistics ...           ← numpy skipped entirely!
+✅ It worked!
+🤖 Based on the past execution failure I retrieved, I learned that numpy is
+   not available here. I skipped numpy and used the standard library.
+```
+
+```
+📊 Self-Improvement Summary
+  Run 1 (cold):     attempts=2  FAILURES=1
+  Run 2 (informed): attempts=1  FAILURES=0
+  ✅ The agent read its OWN trace history and avoided repeating the failure.
+```
+
+The failure count dropping from **1 → 0** *is* the self-improvement loop, made
+measurable and verifiable.
+
+## Glossary
+
+- **Phoenix** — Arize's open-source AI observability platform. It records
+  every step the agent takes so you can inspect it later.
+- **MCP** — Model Context Protocol. A standard way to give an AI agent tools.
+  Phoenix exposes its data over MCP so the agent can read its own traces.
+- **Trace / Span** — A trace is one full agent run; a span is one step inside
+  it (an LLM call, a tool call, etc).
+- **Annotation** — A score or label attached to a span (e.g. an eval result).
+- **ADK** — Google's Agent Development Kit. The framework the agent runs on.
+
+## Try it yourself
+
+```bash
+git clone https://github.com/jacquesbusiness15-code/self-healing-gemini-agent
+cd self-healing-gemini-agent
+make setup            # creates venv, installs deps
+cp .env.example .env   # then fill in your Phoenix + Gemini keys
+make check             # auto-picks a Gemini model with quota
+make demo              # 🎬 watch the agent learn from itself
+```
 
 ---
+
+## 📖 For developers
+
+Everything below is the technical detail. If you just wanted to know what the
+project does, you can stop reading here.
 
 ## The idea in one picture
 

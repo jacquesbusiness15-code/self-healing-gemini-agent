@@ -207,14 +207,31 @@ def _tool_status(resp) -> str | None:
     return None
 
 
-async def run_task(task: str, label: str = "task") -> dict:
+async def run_task(task: str, label: str = "task", narrate: bool = False) -> dict:
     """Run one task in a FRESH session (no memory carried between calls) and
-    return a small summary so callers can measure self-improvement across runs."""
+    return a small summary so callers can measure self-improvement across runs.
+
+    When `narrate=True`, prints a plain-English explanation line before each
+    raw event — turns the demo into a story a non-coder can follow.
+    """
     phoenix_toolset = make_phoenix_toolset()
     agent = build_agent(phoenix_toolset)
     runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
     summary = {"label": label, "code_attempts": 0, "code_errors": 0,
                "introspection_calls": 0, "final_text": "", "note": ""}
+
+    # Lazy import so the narrator stays optional. If rich isn't available, fall
+    # back to plain print() — the narration is a display layer only.
+    if narrate:
+        from rich.console import Console
+        import time
+        _con = Console()
+        def _say(markup: str) -> None:
+            _con.print(markup)
+            time.sleep(0.4)  # paces the story so a human can follow it
+    else:
+        def _say(markup: str) -> None: pass
+
     try:
         session = await runner.session_service.create_session(
             app_name=APP_NAME, user_id=label,
@@ -230,28 +247,49 @@ async def run_task(task: str, label: str = "task") -> dict:
                 for part in event.content.parts:
                     if part.text:
                         summary["final_text"] = part.text.strip()
+                        _say(f"[bold green]🤖 The agent's answer:[/]")
                         print(f"🤖 {part.text.strip()}")
                     elif part.function_call:
                         name = part.function_call.name
                         args = part.function_call.args or {}
                         if name == "execute_python" or "code" in args:
                             summary["code_attempts"] += 1
+                            _say("[cyan]💻 Trying this code …[/]")
                             print(f"🔧 execute_python:\n{args.get('code', '')}\n")
+                        elif "recall_failures" in name:
+                            summary["introspection_calls"] += 1
+                            _say("[magenta]🧠 Let me check what's failed for me before …[/]")
+                            print(f"🔍 introspect: {name}({args})")
                         else:
                             summary["introspection_calls"] += 1
+                            _say("[magenta]🔭 Looking at my Phoenix traces …[/]")
                             print(f"🔍 introspect: {name}({args})")
                     elif part.function_response:
                         resp = part.function_response.response
-                        if part.function_response.name == "execute_python":
+                        rname = part.function_response.name
+                        if rname == "execute_python":
                             status = _tool_status(resp)
                             if status == "error":
                                 summary["code_errors"] += 1
-                            elif status == "ok" and isinstance(resp, dict):
-                                summary["final_text"] = (
-                                    (resp.get("stdout") or "").strip()
-                                    or summary["final_text"]
-                                )
-                        print(f"📤 {part.function_response.name} -> {str(resp)[:300]}\n")
+                                _say("[bold red]❌ That failed — I'll fix it and try again.[/]")
+                            elif status == "ok":
+                                _say("[bold green]✅ It worked![/]")
+                                if isinstance(resp, dict):
+                                    summary["final_text"] = (
+                                        (resp.get("stdout") or "").strip()
+                                        or summary["final_text"]
+                                    )
+                        elif "recall_failures" in rname:
+                            past = []
+                            if isinstance(resp, dict):
+                                past = resp.get("past_failures") or []
+                            if past:
+                                _say(f"[magenta]→ Found {len(past)} past failure(s). Reading them.[/]")
+                            else:
+                                _say("[magenta]→ No past failures — this is a cold start.[/]")
+                        else:
+                            _say(f"[magenta]→ Got data back from Phoenix.[/]")
+                        print(f"📤 {rname} -> {str(resp)[:300]}\n")
         except Exception as exc:
             # Free tier is 5 req/min on this model; a burst can trip it after
             # ADK's retries. The key metrics are already captured, so don't crash.

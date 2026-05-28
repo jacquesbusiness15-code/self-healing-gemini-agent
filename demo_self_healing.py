@@ -30,7 +30,13 @@ os.environ["PHOENIX_PROJECT_NAME"] = (
 )
 
 from phoenix.client import Client
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+
 from self_healing_agent import run_task, PROJECT_NAME
+
+console = Console()
 
 px = Client(
     base_url=os.environ["PHOENIX_COLLECTOR_ENDPOINT"],
@@ -78,44 +84,62 @@ async def wait_for_new_spans(baseline: int, min_new: int = 3, timeout: int = 120
 
 
 async def main() -> None:
-    print(f"\nPhoenix project for this demo: {PROJECT_NAME}")
-    print(f"Model: {os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')}")
-    print("=" * 72)
-    print("RUN 1 — fresh agent, empty history (expect a numpy failure + recovery)")
-    print("=" * 72)
+    intro = (
+        f"[bold]Project:[/] {PROJECT_NAME}\n"
+        f"[bold]Model:[/]   {os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')}\n\n"
+        "Watch closely — the agent will run the SAME task twice in two FRESH "
+        "sessions.\n"
+        "Its only memory across runs is its own log in Phoenix."
+    )
+    console.print(Panel(intro, title="🤖 Self-Healing Agent — Live Demo",
+                        border_style="cyan"))
+
+    console.print(Panel(
+        "[bold yellow]RUN 1 — cold start[/]\n"
+        "Fresh agent, no history. We expect it to TRY numpy, FAIL, then "
+        "self-recover with Python's standard library.",
+        border_style="yellow"))
     baseline = span_count()
-    r1 = await run_task(TASK, label="run-1-cold")
+    r1 = await run_task(TASK, label="run-1-cold", narrate=True)
 
     t0 = time.time()
-    print("\n… waiting for Run 1 traces to be queryable in Phoenix …")
+    console.print("\n[dim]… waiting for Run 1's traces to land in Phoenix …[/]")
     await wait_for_new_spans(baseline)
-    # Let the per-minute free-tier rate limit reset before Run 2.
     elapsed = time.time() - t0
     if elapsed < 65:
-        print(f"… pacing {65 - elapsed:.0f}s so the per-minute rate limit resets …")
+        console.print(f"[dim]… pacing {65 - elapsed:.0f}s so the per-minute rate limit resets …[/]")
         await asyncio.sleep(65 - elapsed)
 
-    print("\n" + "=" * 72)
-    print("RUN 2 — fresh agent, SAME task, but it can now read Run 1's trace via MCP")
-    print("=" * 72)
-    r2 = await run_task(TASK, label="run-2-informed")
+    console.print(Panel(
+        "[bold cyan]RUN 2 — informed by Run 1's traces[/]\n"
+        "Fresh agent again, ZERO local memory. It can only know about Run 1 by "
+        "reading its own Phoenix logs. If it works, it'll skip numpy entirely.",
+        border_style="cyan"))
+    r2 = await run_task(TASK, label="run-2-informed", narrate=True)
 
-    print("\n" + "#" * 72)
-    print("SELF-IMPROVEMENT SUMMARY")
-    print(f"  Run 1 (cold):     attempts={r1['code_attempts']}  "
-          f"FAILURES={r1['code_errors']}  introspection_calls={r1['introspection_calls']}")
-    print(f"  Run 2 (informed): attempts={r2['code_attempts']}  "
-          f"FAILURES={r2['code_errors']}  introspection_calls={r2['introspection_calls']}")
+    summary = (
+        f"  [bold]Run 1 (cold):    [/]  attempts={r1['code_attempts']}  "
+        f"FAILURES={r1['code_errors']}  introspection_calls={r1['introspection_calls']}\n"
+        f"  [bold]Run 2 (informed):[/]  attempts={r2['code_attempts']}  "
+        f"FAILURES={r2['code_errors']}  introspection_calls={r2['introspection_calls']}\n"
+    )
     if r2["code_errors"] < r1["code_errors"]:
-        print("  ✅ The agent read its OWN trace history and avoided repeating the failure.")
+        verdict = "[bold green]✅ The agent read its OWN trace history and avoided repeating the failure.[/]"
+        style = "green"
     elif r2["introspection_calls"] > 0:
-        print("  ℹ️  The agent introspected its history; inspect the runs above for the lesson it applied.")
+        verdict = "[yellow]ℹ️  The agent introspected its history; inspect the runs above for the lesson it applied.[/]"
+        style = "yellow"
     else:
-        print("  ⚠️  No clear improvement this run — check the transcripts above.")
-    print("#" * 72)
-    print(f"\nEvaluate this run's traces (project '{PROJECT_NAME}'):")
-    print(f"  .venv/bin/python evaluate_runs.py {PROJECT_NAME}")
-    print(f"  .venv/bin/python evaluate_llm_judge.py {PROJECT_NAME}")
+        verdict = "[red]⚠️  No clear improvement this run — check the transcripts above.[/]"
+        style = "red"
+    console.print(Panel(summary + verdict, title="📊 Self-Improvement Summary",
+                        border_style=style))
+
+    console.print(
+        f"\n[dim]Evaluate this run's traces (writes annotations back to Phoenix):[/]\n"
+        f"  [bold cyan].venv/bin/python evaluate_runs.py[/] {PROJECT_NAME}\n"
+        f"  [bold cyan].venv/bin/python evaluate_llm_judge.py[/] {PROJECT_NAME}\n"
+    )
 
 
 if __name__ == "__main__":
