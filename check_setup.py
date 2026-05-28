@@ -82,8 +82,11 @@ if not chosen:
     print("   → wait for the daily reset (~midnight US Pacific), or enable billing.")
     sys.exit(1)
 
-if preset:
-    print(f"\n{OK} Using your pinned GEMINI_MODEL={chosen}")
+if preset and chosen == preset:
+    print(f"\n{OK} Your pinned GEMINI_MODEL={chosen} still has quota.")
+elif preset and chosen != preset:
+    set_key(ENV_PATH, "GEMINI_MODEL", chosen)
+    print(f"\n{OK} Pinned {preset} is exhausted — switched .env to GEMINI_MODEL={chosen}")
 else:
     set_key(ENV_PATH, "GEMINI_MODEL", chosen)
     print(f"\n{OK} Wrote GEMINI_MODEL={chosen} to .env")

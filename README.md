@@ -98,3 +98,24 @@ cp .env.example .env          # then fill in your PHOENIX_* and GEMINI_API_KEY
 - `gemini-2.5-flash` needs a thinking budget (`thinking_config`) to emit well-formed
   function calls with detailed instructions — disabling thinking caused `MALFORMED_FUNCTION_CALL`.
 - For a smooth live demo, **enabling billing** removes these caps entirely (Gemini 2.5 Flash is very cheap).
+
+## Troubleshooting
+
+**Got `429 RESOURCE_EXHAUSTED` mid-test?** A single model's free-tier daily cap
+is ~20 requests. Other models have their own buckets. Just re-run:
+
+```bash
+make check    # auto-rotates GEMINI_MODEL to a model that has quota
+```
+
+If no model has quota: wait for the daily reset (~midnight US Pacific), or
+enable billing on your Google AI Studio project.
+
+**Want to peek at quota state without touching `.env`?**
+
+```bash
+make quota
+```
+
+**Got `503 UNAVAILABLE`?** Google capacity blip, transient. `make check` will
+switch you to a different model immediately.
