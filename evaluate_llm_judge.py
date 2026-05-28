@@ -36,11 +36,14 @@ genai_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 def _latest_demo_project(default: str = "gemini-hackathon") -> str:
     """Auto-discover the most recent selfheal-demo-* project so the eval can run
-    with no CLI args. Falls back to `default` if none exist."""
+    with no CLI args. Prefers the YYYYMMDD-HHMMSS format (correctly sortable);
+    falls back to the old HHMMSS-only names if no new-format projects exist."""
     try:
         names = [str(p.get("name", "")) for p in px.projects.list()]
-        demos = sorted(n for n in names if n.startswith("selfheal-demo-"))
-        return demos[-1] if demos else default
+        demos = [n for n in names if n.startswith("selfheal-demo-")]
+        new_fmt = [n for n in demos if "-" in n[len("selfheal-demo-"):]]
+        pool = new_fmt or demos
+        return sorted(pool)[-1] if pool else default
     except Exception:
         return default
 
@@ -85,7 +88,12 @@ def computed_outputs(group: list) -> str:
 
 def judge(answer: str) -> dict:
     prompt = JUDGE_PROMPT.format(answer=answer, **EXPECTED)
-    resp = genai_client.models.generate_content(model=JUDGE_MODEL, contents=prompt)
+    try:
+        resp = genai_client.models.generate_content(model=JUDGE_MODEL, contents=prompt)
+    except Exception as exc:
+        msg = str(exc)
+        tag = "rate_limited" if ("429" in msg or "RESOURCE_EXHAUSTED" in msg) else "judge_error"
+        return {"label": tag, "explanation": msg[:120]}
     text = (resp.text or "").strip().strip("`")
     if text.lower().startswith("json"):
         text = text[4:].strip()
