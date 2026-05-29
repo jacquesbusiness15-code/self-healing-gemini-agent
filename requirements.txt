@@ -101,3 +101,4 @@ zipp==4.1.0
 rich>=13
 arize-phoenix-evals>=3.1
 pandas>=2
+ddgs>=6.0
