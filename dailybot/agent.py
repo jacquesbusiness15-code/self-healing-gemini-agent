@@ -28,8 +28,10 @@ from google.genai import types
 from mcp import StdioServerParameters
 
 from dailybot.prompt import INSTRUCTION
+from dailybot.tools.calendar import calendar_search, calendar_today, calendar_week
 from dailybot.tools.code import execute_python
-from dailybot.tools.files import read_file, write_file, list_dir, find_files
+from dailybot.tools.files import find_files, list_dir, read_file, write_file
+from dailybot.tools.gmail import gmail_draft_reply, gmail_inbox_recent, gmail_search
 from dailybot.tools.recall import recall_failures
 from dailybot.tools.shell import shell_exec
 from dailybot.tools.web_search import web_search
@@ -72,6 +74,8 @@ def build_chat_agent(phoenix_toolset: McpToolset) -> LlmAgent:
             read_file, write_file, list_dir, find_files,
             shell_exec,
             execute_python,
+            calendar_today, calendar_week, calendar_search,
+            gmail_inbox_recent, gmail_search, gmail_draft_reply,
             recall_failures,
             phoenix_toolset,
         ],

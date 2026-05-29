@@ -3,20 +3,21 @@
 
 PY := .venv/bin/python
 
-.PHONY: setup check quota tutorial mcp-check demo dataset experiment eval test chat clean help
+.PHONY: setup check quota tutorial mcp-check demo dataset experiment eval test chat google-setup clean help
 
 help:
-	@echo "make setup      — create venv + install requirements"
-	@echo "make tutorial   — 🟢 NEW HERE? Guided walkthrough, lesson by lesson"
-	@echo "make chat       — 💬 chat with the self-healing daily-tasks bot"
-	@echo "make check      — preflight (env vars, Phoenix, auto-pin a model with quota)"
-	@echo "make quota      — probe all candidate models (read-only, does not touch .env)"
-	@echo "make mcp-check  — quick agent run that calls Phoenix MCP at runtime"
-	@echo "make demo       — the 2-run self-healing demo (narrated, the centerpiece)"
-	@echo "make dataset    — create the Phoenix Dataset 'self-healing-stats' (idempotent)"
-	@echo "make experiment — run cold-vs-informed as a Phoenix Experiment (uses quota)"
-	@echo "make eval       — run code eval + LLM-as-Judge on the latest demo project"
-	@echo "make test       — full sequence: check → demo → eval"
+	@echo "make setup        — create venv + install requirements"
+	@echo "make tutorial     — 🟢 NEW HERE? Guided walkthrough, lesson by lesson"
+	@echo "make chat         — 💬 chat with the self-healing daily-tasks bot"
+	@echo "make google-setup — one-time: connect Google Calendar + Gmail (optional)"
+	@echo "make check        — preflight (env vars, Phoenix, auto-pin a model with quota)"
+	@echo "make quota        — probe all candidate models (read-only, does not touch .env)"
+	@echo "make mcp-check    — quick agent run that calls Phoenix MCP at runtime"
+	@echo "make demo         — the 2-run self-healing demo (narrated, the centerpiece)"
+	@echo "make dataset      — create the Phoenix Dataset 'self-healing-stats' (idempotent)"
+	@echo "make experiment   — run cold-vs-informed as a Phoenix Experiment (uses quota)"
+	@echo "make eval         — run code eval + LLM-as-Judge on the latest demo project"
+	@echo "make test         — full sequence: check → demo → eval"
 
 setup:
 	python3 -m venv .venv
@@ -35,6 +36,9 @@ tutorial:
 
 chat:
 	$(PY) -m dailybot
+
+google-setup:
+	$(PY) setup_google.py
 
 mcp-check:
 	$(PY) self_healing_agent.py

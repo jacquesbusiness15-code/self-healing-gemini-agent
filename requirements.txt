@@ -102,3 +102,5 @@ rich>=13
 arize-phoenix-evals>=3.1
 pandas>=2
 ddgs>=6.0
+google-auth-oauthlib>=1.2
+google-api-python-client>=2.150

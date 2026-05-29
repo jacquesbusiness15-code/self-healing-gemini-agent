@@ -40,8 +40,14 @@ TOOLS_TEXT = """**Available tools**
 - `read_file / write_file / list_dir / find_files` — file ops
 - `shell_exec(cmd)` — run a shell command (destructive ones blocked)
 - `execute_python(code)` — run Python in a sandbox
+- `calendar_today / calendar_week / calendar_search` — Google Calendar (read-only)
+- `gmail_inbox_recent / gmail_search` — read Gmail
+- `gmail_draft_reply(thread_id, body)` — save a draft reply (NEVER sends)
 - `recall_failures(limit, task_keyword)` — your own past failures from Phoenix
-- `get_spans(...)` (via Phoenix MCP) — raw span query for advanced use"""
+- `get_spans(...)` (via Phoenix MCP) — raw span query for advanced use
+
+**Heads-up:** Google tools need a one-time setup. Run `make google-setup`
+once if you haven't yet (or skip if you only want web/file/shell/code)."""
 
 
 def _preflight() -> None:
