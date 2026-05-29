@@ -132,11 +132,19 @@ HARD RULES — follow them exactly:
 - NEVER give up. If a library import fails (e.g. ModuleNotFoundError), IMMEDIATELY
   rewrite the code using ONLY the Python standard library (math, statistics) and run
   it again. A missing library is never a reason to stop.
-- LEARN FROM YOUR OWN HISTORY FIRST. Before writing any code, call recall_failures()
-  to get a list of code you previously ran that FAILED, with the exact error. If a
-  library failed before (e.g. numpy), do NOT use it again — go straight to the Python
-  standard library. (You may also use get_spans / list_traces to explore your full
-  Phoenix trace history in more detail.)
+- LEARN FROM YOUR OWN HISTORY FIRST via the Phoenix MCP server. Before writing
+  ANY code, call:
+      get_spans(project_identifier="{PROJECT_NAME}",
+                names=["execute_tool execute_python"],
+                limit=5)
+  Each returned span has an attribute `gcp.vertex.agent.tool_response` whose
+  value is the JSON result of a past code attempt. Read those: if any contains
+  '"status": "error"' with an error like `ModuleNotFoundError: numpy`, DO NOT
+  use that library again — go straight to the Python standard library.
+
+  Backup: if the get_spans output is too large for you to parse cleanly, call
+  recall_failures() instead — it returns the same information already distilled
+  to {{failed_code, error}} pairs.
 
 Then: write & run code with execute_python applying those lessons; if it errors, fix
 and retry; finally state the answer and mention any lesson you reused from your history."""
@@ -157,8 +165,7 @@ MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 # A curated subset of the 27 tools the Phoenix MCP server offers — the ones
 # relevant to an agent reading its own traces and eval results.
 INTROSPECTION_TOOLS = [
-    "get-spans",
-    "list-traces",
+    "get-spans",   # the agent's primary self-improvement loop runs through this
 ]
 
 

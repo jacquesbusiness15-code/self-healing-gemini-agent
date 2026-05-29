@@ -3,16 +3,18 @@
 
 PY := .venv/bin/python
 
-.PHONY: setup check quota mcp-check demo eval test clean help
+.PHONY: setup check quota mcp-check demo dataset experiment eval test clean help
 
 help:
-	@echo "make setup     — create venv + install requirements"
-	@echo "make check     — preflight (env vars, Phoenix, auto-pin a model with quota)"
-	@echo "make quota     — probe all candidate models (read-only, does not touch .env)"
-	@echo "make mcp-check — quick agent run that calls Phoenix MCP at runtime"
-	@echo "make demo      — the 2-run self-healing demo (the centerpiece)"
-	@echo "make eval      — run code eval + LLM-as-Judge on the latest demo project"
-	@echo "make test      — full sequence: check → demo → eval"
+	@echo "make setup      — create venv + install requirements"
+	@echo "make check      — preflight (env vars, Phoenix, auto-pin a model with quota)"
+	@echo "make quota      — probe all candidate models (read-only, does not touch .env)"
+	@echo "make mcp-check  — quick agent run that calls Phoenix MCP at runtime"
+	@echo "make demo       — the 2-run self-healing demo (narrated, the centerpiece)"
+	@echo "make dataset    — create the Phoenix Dataset 'self-healing-stats' (idempotent)"
+	@echo "make experiment — run cold-vs-informed as a Phoenix Experiment (uses quota)"
+	@echo "make eval       — run code eval + LLM-as-Judge on the latest demo project"
+	@echo "make test       — full sequence: check → demo → eval"
 
 setup:
 	python3 -m venv .venv
@@ -31,6 +33,12 @@ mcp-check:
 
 demo:
 	$(PY) demo_self_healing.py
+
+dataset:
+	$(PY) init_dataset.py
+
+experiment:
+	$(PY) run_experiment.py
 
 eval:
 	$(PY) evaluate_runs.py

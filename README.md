@@ -122,7 +122,9 @@ self-improvement loop.
 - `self_healing_agent.py` — the agent, its tools, and `run_task()`. Run directly for a quick MCP-introspection check.
 - `demo_self_healing.py` — **the centerpiece**: runs the same task twice in fresh sessions and prints the cold→learned delta.
 - `evaluate_runs.py` — code eval: scores each run from its traces and logs `self_healing_quality` annotations back to Phoenix.
-- `evaluate_llm_judge.py` — LLM-as-Judge: Gemini grades each run's answer vs ground truth and logs `answer_correctness` annotations.
+- `evaluate_llm_judge.py` — LLM-as-Judge **(via `phoenix.evals.ClassificationEvaluator`)**: Gemini grades each run's answer vs ground truth and logs `answer_correctness` annotations.
+- `init_dataset.py` — creates the **Phoenix Dataset** `self-healing-stats` (one row: the 40-number task + ground-truth expected output).
+- `run_experiment.py` — runs the cold-vs-informed contrast as **two Phoenix Experiments** on that dataset, so the failure-count delta surfaces in the Experiments UI.
 - `_check_traces.py` — handy CLI to list spans in a project.
 - `hello_world.py` / `instrumentation.py` — minimal "first trace" smoke test.
 
