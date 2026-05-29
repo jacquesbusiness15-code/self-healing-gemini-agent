@@ -3,10 +3,11 @@
 
 PY := .venv/bin/python
 
-.PHONY: setup check quota mcp-check demo dataset experiment eval test clean help
+.PHONY: setup check quota tutorial mcp-check demo dataset experiment eval test clean help
 
 help:
 	@echo "make setup      — create venv + install requirements"
+	@echo "make tutorial   — 🟢 NEW HERE? Guided walkthrough, lesson by lesson"
 	@echo "make check      — preflight (env vars, Phoenix, auto-pin a model with quota)"
 	@echo "make quota      — probe all candidate models (read-only, does not touch .env)"
 	@echo "make mcp-check  — quick agent run that calls Phoenix MCP at runtime"
@@ -27,6 +28,9 @@ check:
 
 quota:
 	$(PY) _quota_check.py
+
+tutorial:
+	$(PY) tutorial.py
 
 mcp-check:
 	$(PY) self_healing_agent.py

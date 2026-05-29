@@ -92,8 +92,9 @@ else:
     print(f"\n{OK} Wrote GEMINI_MODEL={chosen} to .env")
 
 print("=" * 52)
-print("READY TO TEST. Next:")
-print("  .venv/bin/python demo_self_healing.py     # the self-healing demo")
+print("READY TO TEST.")
+print("  New here? → make tutorial    (guided walkthrough, lesson by lesson)")
+print("  Otherwise → .venv/bin/python demo_self_healing.py   # the self-healing demo")
 print("Then evaluate the project it prints:")
 print("  .venv/bin/python evaluate_runs.py <project>")
 print("  .venv/bin/python evaluate_llm_judge.py <project>")

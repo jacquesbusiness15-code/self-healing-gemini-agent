@@ -77,7 +77,8 @@ git clone https://github.com/jacquesbusiness15-code/self-healing-gemini-agent
 cd self-healing-gemini-agent
 make setup            # creates venv, installs deps
 cp .env.example .env   # then fill in your Phoenix + Gemini keys
-make check             # auto-picks a Gemini model with quota
+make tutorial          # 🟢 first-time? Guided walkthrough, lesson by lesson
+make check             # OR jump straight in: auto-picks a Gemini model with quota
 make demo              # 🎬 watch the agent learn from itself
 ```
 
