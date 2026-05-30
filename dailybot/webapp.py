@@ -12,10 +12,13 @@ import asyncio
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import nest_asyncio
 import streamlit as st
+
+from dailybot.oauth import CREDS_PATH, TOKEN_PATH, _load_cached
 
 # Streamlit runs synchronously; ADK is async. nest_asyncio lets asyncio.run
 # work even when Streamlit already holds an event loop in some configs.
@@ -29,6 +32,51 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 def _short(value, limit: int = 100) -> str:
     s = str(value)
     return s if len(s) <= limit else s[: limit - 1] + "…"
+
+
+def _google_state() -> str:
+    """Read-only check of the user's Google connection. Safe to call on
+    every Streamlit rerun.
+
+    Returns one of:
+      - "not_started": no credentials.json on disk (user hasn't done GCP setup)
+      - "needs_auth":  credentials.json exists, no valid token (need OAuth)
+      - "connected":   valid token (calendar + gmail tools work)
+    """
+    if not CREDS_PATH.exists():
+        return "not_started"
+    creds = _load_cached()
+    if creds and (creds.valid or creds.refresh_token):
+        return "connected"
+    return "needs_auth"
+
+
+def _run_oauth_subprocess() -> tuple[bool, str]:
+    """Spawn an OAuth dance in a subprocess (so Streamlit's main thread
+    isn't blocked by Google's local-server redirect). Poll for token.json
+    or subprocess exit. Returns (success, message)."""
+    proc = subprocess.Popen(
+        [sys.executable, "-c",
+         "from dailybot.oauth import get_credentials; "
+         "get_credentials(interactive=True)"],
+        cwd=str(PROJECT_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        if TOKEN_PATH.exists():
+            try:
+                proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                proc.terminate()
+            return True, "✅ Google connected — calendar + Gmail tools enabled."
+        if proc.poll() is not None:
+            err = (proc.stderr.read() or b"").decode("utf-8", "replace")[-500:]
+            return False, f"OAuth subprocess exited without producing a token.\n\n{err}"
+        time.sleep(1)
+    proc.terminate()
+    return False, "Timed out after 2 minutes waiting for Google consent."
 
 
 def _preflight_once() -> None:
@@ -93,6 +141,85 @@ with st.sidebar:
     if base:
         ui_url = base.rstrip("/").replace("/v1/traces", "")
         st.markdown(f"🔗 [Open Phoenix UI]({ui_url}/projects)")
+
+    # --- Google connect status + setup ---
+    gstate = _google_state()
+    if gstate == "connected":
+        st.markdown("🟢 **Google: connected**")
+        if st.button("🔓 Disconnect Google", use_container_width=True,
+                     help="Delete the cached OAuth token. You can re-authorize "
+                          "later from this same sidebar."):
+            try:
+                TOKEN_PATH.unlink(missing_ok=True)
+            except Exception as exc:
+                st.warning(f"Could not delete token: {exc}")
+            st.rerun()
+    else:
+        st.markdown("🟡 **Google: not connected** _(calendar + Gmail will fail)_")
+        with st.expander("🔌 Connect Google", expanded=False):
+            if gstate == "not_started":
+                st.markdown(
+                    "Google requires you to create a Cloud project once. Steps "
+                    "1-4 happen in your browser at "
+                    "[console.cloud.google.com](https://console.cloud.google.com) "
+                    "and take ~5 min.\n\n"
+                    "**1. Create a project**\n"
+                    "Top bar → project dropdown → **New Project** → name it "
+                    "`dailybot` → **Create**, then select it.\n\n"
+                    "**2. Enable two APIs**\n"
+                    "Left menu → **APIs & Services → Library** → search and "
+                    "**Enable**:\n"
+                    "- Google Calendar API\n"
+                    "- Gmail API\n\n"
+                    "**3. OAuth consent screen**\n"
+                    "Left menu → **APIs & Services → OAuth consent screen** → "
+                    "**External** → fill in app name `dailybot`, your own "
+                    "email as support + developer contact, add your own "
+                    "email as a test user. Save and continue through.\n\n"
+                    "**4. Create the OAuth client + download JSON**\n"
+                    "Left menu → **APIs & Services → Credentials** → "
+                    "**+ Create Credentials → OAuth client ID** → "
+                    "Application type: **Desktop app** → name `dailybot` → "
+                    "**Create** → click **Download JSON** in the dialog.\n\n"
+                    "**5. Place the file on disk**\n"
+                    "In any terminal, copy-paste:\n"
+                    "```bash\n"
+                    "mkdir -p ~/.config/dailybot && \\\n"
+                    "  mv ~/Downloads/client_secret_*.json \\\n"
+                    "     ~/.config/dailybot/credentials.json\n"
+                    "```\n\n"
+                    "Then come back and click the button below."
+                )
+                if st.button("🔄 I placed credentials.json — check again",
+                             use_container_width=True):
+                    st.rerun()
+            elif gstate == "needs_auth":
+                st.markdown(
+                    "✅ `credentials.json` found at "
+                    f"`{CREDS_PATH}`.\n\n"
+                    "Click **Authorize** below. A new browser tab will open "
+                    "to Google's consent screen — click **Allow** there and "
+                    "this badge will turn green. Scopes requested: "
+                    "Calendar read-only, Gmail read-only, Gmail compose "
+                    "(drafts only — never send).\n\n"
+                    "You'll see Google's *'this app isn't verified'* warning — "
+                    "that's normal for personal apps. Click **Advanced → "
+                    "Go to dailybot (unsafe)**. It's your own project."
+                )
+                if st.button("🔐 Authorize with Google",
+                             use_container_width=True):
+                    with st.status("Opening Google consent screen in a new "
+                                   "browser tab… click Allow there.",
+                                   expanded=True) as status:
+                        ok, msg = _run_oauth_subprocess()
+                        if ok:
+                            status.update(label=msg, state="complete")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            status.update(label="❌ OAuth failed",
+                                          state="error")
+                            st.code(msg)
 
     st.divider()
     if st.button("🔄 New chat", use_container_width=True):
