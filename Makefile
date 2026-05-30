@@ -3,7 +3,7 @@
 
 PY := .venv/bin/python
 
-.PHONY: setup check quota tutorial mcp-check demo dataset experiment eval test chat webapp webapp-stop webapp-logs google-setup clean help
+.PHONY: setup check quota tutorial mcp-check demo demo-dailybot dataset experiment eval chat-eval test chat webapp webapp-stop webapp-logs google-setup clean help
 
 help:
 	@echo "make setup        — create venv + install requirements"
@@ -11,6 +11,8 @@ help:
 	@echo "make webapp-stop  — stop the background webapp server"
 	@echo "make webapp-logs  — tail the background webapp server's log"
 	@echo "make chat         — 💬 same bot in the terminal (foreground)"
+	@echo "make demo-dailybot — 🤖 2-run demo proving the self-healing loop on dailybot"
+	@echo "make chat-eval    — score the latest dailybot chat session (CODE + LLM-Judge)"
 	@echo "make tutorial     — 🟢 NEW HERE? Guided walkthrough, lesson by lesson"
 	@echo "make google-setup — one-time: connect Google Calendar + Gmail (optional)"
 	@echo "make check        — preflight (env vars, Phoenix, auto-pin a model with quota)"
@@ -111,6 +113,13 @@ experiment:
 eval:
 	$(PY) evaluate_runs.py
 	$(PY) evaluate_llm_judge.py
+
+demo-dailybot:
+	$(PY) demo_dailybot_selfheal.py
+
+chat-eval:
+	$(PY) dailybot/evaluate_chat.py
+	$(PY) dailybot/evaluate_chat_judge.py
 
 test: check demo eval
 	@echo ""
