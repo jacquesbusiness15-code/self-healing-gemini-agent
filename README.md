@@ -77,9 +77,20 @@ git clone https://github.com/jacquesbusiness15-code/self-healing-gemini-agent
 cd self-healing-gemini-agent
 make setup            # creates venv, installs deps
 cp .env.example .env   # then fill in your Phoenix + Gemini keys
-make tutorial          # 🟢 first-time? Guided walkthrough, lesson by lesson
-make check             # OR jump straight in: auto-picks a Gemini model with quota
-make demo              # 🎬 watch the agent learn from itself
+
+# --- the friendliest entry point: chat with the bot in your browser ---
+make webapp            # 💻 opens http://localhost:8501 (server runs in background)
+
+# --- or for the hackathon centerpiece (the toy demo that proves the loop) ---
+make demo              # 🎬 watch the agent learn from itself (2 → 0 failures)
+make demo-dailybot     # 🤖 same loop, proven on the real chatbot's shell tool
+
+# --- score the runs ---
+make eval              # CODE + LLM-Judge on the toy demo
+make chat-eval         # CODE + LLM-Judge on the chatbot's chat traces
+
+# --- new here? ---
+make tutorial          # 🟢 guided 8-lesson walkthrough of the whole project
 ```
 
 ---
