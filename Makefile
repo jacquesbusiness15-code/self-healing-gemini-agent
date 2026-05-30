@@ -3,12 +3,13 @@
 
 PY := .venv/bin/python
 
-.PHONY: setup check quota tutorial mcp-check demo dataset experiment eval test chat google-setup clean help
+.PHONY: setup check quota tutorial mcp-check demo dataset experiment eval test chat webapp google-setup clean help
 
 help:
 	@echo "make setup        — create venv + install requirements"
+	@echo "make webapp       — 💻 open the bot in a browser tab (recommended)"
+	@echo "make chat         — 💬 same bot in the terminal"
 	@echo "make tutorial     — 🟢 NEW HERE? Guided walkthrough, lesson by lesson"
-	@echo "make chat         — 💬 chat with the self-healing daily-tasks bot"
 	@echo "make google-setup — one-time: connect Google Calendar + Gmail (optional)"
 	@echo "make check        — preflight (env vars, Phoenix, auto-pin a model with quota)"
 	@echo "make quota        — probe all candidate models (read-only, does not touch .env)"
@@ -36,6 +37,9 @@ tutorial:
 
 chat:
 	$(PY) -m dailybot
+
+webapp:
+	$(PY) -m streamlit run dailybot/webapp.py
 
 google-setup:
 	$(PY) setup_google.py

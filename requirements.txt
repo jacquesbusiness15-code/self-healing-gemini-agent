@@ -104,3 +104,5 @@ pandas>=2
 ddgs>=6.0
 google-auth-oauthlib>=1.2
 google-api-python-client>=2.150
+streamlit>=1.30
+nest-asyncio>=1.6
