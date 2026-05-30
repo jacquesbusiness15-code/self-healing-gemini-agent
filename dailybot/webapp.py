@@ -102,6 +102,37 @@ with st.sidebar:
         )
         st.rerun()
 
+    if st.button("📊 Score this conversation", use_container_width=True,
+                 help="Runs both eval pipelines (CODE + LLM-Judge) on this "
+                      "Phoenix project and writes verdicts back as span "
+                      "annotations. Uses ~1 Gemini call per chat turn."):
+        with st.status("Scoring…", expanded=True) as status:
+            st.write("Step 1 / 2 — CODE eval (no Gemini calls)")
+            r1 = subprocess.run(
+                [sys.executable, str(PROJECT_ROOT / "dailybot" / "evaluate_chat.py"),
+                 PROJECT_NAME],
+                capture_output=True, text=True,
+            )
+            st.code(r1.stdout or r1.stderr or "(no output)")
+            st.write("Step 2 / 2 — LLM-Judge (one Gemini call per chat turn)")
+            r2 = subprocess.run(
+                [sys.executable, str(PROJECT_ROOT / "dailybot" / "evaluate_chat_judge.py"),
+                 PROJECT_NAME],
+                capture_output=True, text=True,
+            )
+            st.code(r2.stdout or r2.stderr or "(no output)")
+            if r1.returncode == 0 and r2.returncode == 0:
+                status.update(label="✅ Verdicts written to Phoenix",
+                              state="complete")
+                st.info(
+                    "Annotations are now on each chat turn in Phoenix. "
+                    "Click **🔗 Open Phoenix UI** above → this project → "
+                    "any trace → **Annotations** tab to see them."
+                )
+            else:
+                status.update(label="⚠️ Scoring had issues — see output above",
+                              state="error")
+
     if st.button("📊 Check quota", use_container_width=True):
         quota_script = PROJECT_ROOT / "_quota_check.py"
         if quota_script.exists():
@@ -131,6 +162,24 @@ with st.sidebar:
         "it learns."
     )
 
+    st.divider()
+    with st.expander("ℹ️ About this submission"):
+        st.markdown(
+            "**What you're using:** a Google ADK + Gemini agent traced via "
+            "OpenInference to **Arize Phoenix**.\n\n"
+            "**What makes it special:** a tool called `recall_failures` reads "
+            "this bot's own Phoenix log via the **Arize MCP server** before "
+            "doing anything. Every fresh chat session starts already knowing "
+            "what failed last time — that's the **self-improvement loop** "
+            "the Arize hackathon brief asks for.\n\n"
+            "**How to verify the claim:** click **📊 Score this conversation** "
+            "above → CODE + LLM-Judge verdicts get written back to Phoenix. "
+            "Judges (or you) inspect the whole trace tree, annotations and "
+            "all, in the Phoenix UI.\n\n"
+            "Full pitch: see "
+            "[SUBMISSION.md](https://github.com/jacquesbusiness15-code/self-healing-gemini-agent/blob/master/SUBMISSION.md)."
+        )
+
 
 # --- Header ---
 st.title("💬 dailybot")
@@ -139,6 +188,63 @@ st.caption(
     "calendar/email. The more you use me, the more I learn from my own "
     "mistakes."
 )
+
+
+# --- A1: Welcome panel (expanded once per session) ---
+if "welcome_seen" not in st.session_state:
+    st.session_state.welcome_seen = False
+
+with st.expander(
+    "👋 **What is this and why is it special?**",
+    expanded=not st.session_state.welcome_seen,
+):
+    st.markdown(
+        "**What it does.** dailybot is a chatbot like ChatGPT, except it has "
+        "real tools wired in: it can search the web, run Python code, read "
+        "and write files on your computer, run shell commands, and (if you "
+        "set up Google) check your calendar and draft Gmail replies. You ask "
+        "it a question in plain English; it picks the right tool and uses "
+        "it."
+        "\n\n"
+        "**Why it's special.** Most chatbots forget what happened in past "
+        "sessions. dailybot doesn't. Every action it takes — every tool it "
+        "calls, every error it hits — is recorded in a database called "
+        "**Arize Phoenix**. Before each new task, the bot first asks itself "
+        "*'have I tried this before? Did it fail?'* by reading its own "
+        "Phoenix log. If the answer is yes, it skips the approach that "
+        "failed. **The more you use it, the smarter it gets.**"
+        "\n\n"
+        "**Why it fits the Arize hackathon.** This whole thing — the tracing, "
+        "the self-introspection, the eval loop — is exactly what Arize "
+        "Phoenix was built for. The Arize brief asks for *\"agents that can "
+        "self-improve using their own observability data.\"* That's "
+        "literally what `recall_failures` does on every turn. Click "
+        "**📊 Score this conversation** in the sidebar to grade your own "
+        "chat; the verdicts get written back to Phoenix as annotations that "
+        "the bot can also read at runtime — closing the loop a second time."
+        "\n\n"
+        "**Want proof it actually learns?** From a terminal: `make demo` "
+        "(toy demo, 2 → 0 failures) or `make demo-dailybot` (this bot, "
+        "blocked shell command → recovered via recall_failures)."
+    )
+    st.session_state.welcome_seen = True
+
+
+# --- A2: Suggested first prompts (only before user has chatted) ---
+if not st.session_state.messages:
+    st.caption("**Not sure what to ask? Try one of these:**")
+    _suggestions = [
+        ("🔍 Search the web", "What was a big tech news story this week?"),
+        ("🐍 Run some Python", "Compute the 20th Fibonacci number using Python"),
+        ("📁 Read my files", "List the files in my Downloads folder"),
+        ("🧠 What can you do?",
+         "Tell me what tools you have and the kinds of tasks I can ask you for."),
+    ]
+    cols = st.columns(len(_suggestions))
+    for col, (label, text) in zip(cols, _suggestions):
+        if col.button(label, use_container_width=True):
+            st.session_state.pending_prompt = text
+            st.rerun()
 
 
 # --- Render existing message history ---
@@ -161,7 +267,10 @@ for msg in st.session_state.messages:
 
 
 # --- Input + reply ---
-prompt = st.chat_input("ask me anything…")
+prompt = (
+    st.chat_input("ask me anything…")
+    or st.session_state.pop("pending_prompt", None)
+)
 if prompt:
     st.session_state.messages.append(
         {"role": "user", "content": prompt, "tool_calls": []}
